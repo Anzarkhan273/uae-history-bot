@@ -5,7 +5,8 @@ import streamlit as st
 from groq import Groq
 from sentence_transformers import SentenceTransformer
 
-st.set_page_config(page_title="UAE History Bot", page_icon="UAE")
+st.set_page_config(page_title="UAE History Bot", page_icon="🇦🇪")
+
 
 @st.cache_resource
 def load_resources():
@@ -16,7 +17,9 @@ def load_resources():
         data = pickle.load(f)
     return client, embed_model, data["chunk_objects"], data["embeddings"]
 
+
 client, embed_model, chunk_objects, chunk_embeddings = load_resources()
+
 
 def find_relevant_chunks(question, top_k=3):
     question_embedding = embed_model.encode([question])[0]
@@ -26,6 +29,18 @@ def find_relevant_chunks(question, top_k=3):
     top_indices = np.argsort(similarities)[-top_k:][::-1]
     return [chunk_objects[i] for i in top_indices]
 
+
+SYSTEM_PROMPT = (
+    "You are a knowledgeable guide on UAE history. "
+    "Use the provided context to answer accurately. "
+    "If the context doesn't fully answer the question, say so honestly rather than guessing.\n\n"
+    "Respond in two parts:\n"
+    "1. Answer in Arabic\n"
+    "2. Then provide the English translation of that same answer\n\n"
+    "Context:\n"
+)
+
+
 def ask_bot(question):
     relevant = find_relevant_chunks(question)
     context = "\n\n".join([c["text"] for c in relevant])
@@ -34,32 +49,15 @@ def ask_bot(question):
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a knowledgeable guide on UAE history. "
-                    "Use the provided context to answer accurately. "
-                    "If the context doesn't fully answer the question, say so honestly rather than guessing.
-
-"
-                    "Respond in two parts:
-"
-                    "1. Answer in Arabic
-"
-                    "2. Then provide the English translation of that same answer
-
-"
-                    "Context:
-" + context
-                )
-            },
+            {"role": "system", "content": SYSTEM_PROMPT + context},
             {"role": "user", "content": question}
         ]
     )
     return response.choices[0].message.content, sources
 
-st.title("UAE History Bot")
-st.caption("Ask anything about UAE history - answers in Arabic and English, grounded in real sources.")
+
+st.title("🇦🇪 UAE History Bot")
+st.caption("Ask anything about UAE history — answers in Arabic and English, grounded in real sources.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -79,6 +77,6 @@ if question:
         with st.spinner("Thinking..."):
             answer, sources = ask_bot(question)
             st.markdown(answer)
-            st.caption("Sources: " + ", ".join(sources))
+            st.caption("📚 Sources: " + ", ".join(sources))
 
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+    st.session_state.messages.append({"role": "assistant", "content": answer}) 
