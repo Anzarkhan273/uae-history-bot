@@ -12,7 +12,8 @@ st.set_page_config(page_title="UAE History Bot", page_icon="🇦🇪")
 
 @st.cache_resource
 def load_resources():
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY")
+client = Groq(api_key=api_key)
     embed_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     with open("embeddings.pkl", "rb") as f:
         data = pickle.load(f)
