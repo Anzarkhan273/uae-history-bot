@@ -40,6 +40,7 @@ SYSTEM_PROMPT = (
     "Context:\n"
 )
 
+
 def is_request_allowed(question):
     """
     Guardrail check: blocks off-topic, harmful, or inappropriate requests
@@ -66,47 +67,17 @@ def is_request_allowed(question):
     verdict = check.choices[0].message.content.strip().upper()
     return "BLOCK" not in verdict
 
+
 def ask_bot(question):
-  if question:
-    st.session_state.messages.append({"role": "user", "content": question})
-    with st.chat_message("user"):
-        st.markdown(question)
+    relevant = find_relevant_chunks(question)
+    context = "\n\n".join([c["text"] for c in relevant])
+    sources = list(set([c["source"] for c in relevant]))
 
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            if not is_request_allowed(question):
-                answer = "I can only help with questions about UAE history and culture. Please rephrase your question."
-                st.markdown(answer)
-            else:
-                answer, sources = ask_bot(question)
-                st.markdown(answer)
-                st.caption("📚 Sources: " + ", ".join(sources))
-
-    st.session_state.messages.append({"role": "assistant", "content": answer})
-      
-
-
-st.title("🇦🇪 UAE History Bot")
-st.caption("Ask anything about UAE history — answers in Arabic and English, grounded in real sources.")
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-question = st.chat_input("Ask a question about UAE history...")
-
-if question:
-    st.session_state.messages.append({"role": "user", "content": question})
-    with st.chat_message("user"):
-        st.markdown(question)
-
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            answer, sources = ask_bot(question)
-            st.markdown(answer)
-            st.caption("📚 Sources: " + ", ".join(sources))
-
-    st.session_state.messages.append({"role": "assistant", "content": answer}) 
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT + context},
+            {"role": "user", "content": question}
+        ]
+    )
+    
