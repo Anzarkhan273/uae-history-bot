@@ -8,6 +8,15 @@ from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
+hf_token = os.getenv("HF_TOKEN")
+if not hf_token:
+    try:
+        hf_token = st.secrets["HF_TOKEN"]
+    except Exception:
+        hf_token = None
+if hf_token:
+    os.environ["HF_TOKEN"] = hf_token
+
 st.set_page_config(page_title="UAE History Bot", page_icon="🇦🇪")
 
 
