@@ -2,5 +2,5 @@ groq
 python-dotenv
 requests
 wikipedia-api
-sentence-transformers
+scikit-learn
 streamlit

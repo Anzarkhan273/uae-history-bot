@@ -1,21 +1,11 @@
 ﻿import os
 import pickle
-import numpy as np
 import streamlit as st
 from dotenv import load_dotenv
 from groq import Groq
-from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 load_dotenv()
-
-hf_token = os.getenv("HF_TOKEN")
-if not hf_token:
-    try:
-        hf_token = st.secrets["HF_TOKEN"]
-    except Exception:
-        hf_token = None
-if hf_token:
-    os.environ["HF_TOKEN"] = hf_token
 
 st.set_page_config(page_title="UAE History Bot", page_icon="🇦🇪")
 
@@ -29,21 +19,18 @@ def load_resources():
         except Exception:
             pass
     client = Groq(api_key=api_key)
-    embed_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    with open("embeddings.pkl", "rb") as f:
+    with open("tfidf_data.pkl", "rb") as f:
         data = pickle.load(f)
-    return client, embed_model, data["chunk_objects"], data["embeddings"]
+    return client, data["chunk_objects"], data["vectorizer"], data["tfidf_matrix"]
 
 
-client, embed_model, chunk_objects, chunk_embeddings = load_resources()
+client, chunk_objects, vectorizer, tfidf_matrix = load_resources()
 
 
 def find_relevant_chunks(question, top_k=3):
-    question_embedding = embed_model.encode([question])[0]
-    similarities = np.dot(chunk_embeddings, question_embedding) / (
-        np.linalg.norm(chunk_embeddings, axis=1) * np.linalg.norm(question_embedding)
-    )
-    top_indices = np.argsort(similarities)[-top_k:][::-1]
+    question_vec = vectorizer.transform([question])
+    similarities = cosine_similarity(question_vec, tfidf_matrix)[0]
+    top_indices = similarities.argsort()[-top_k:][::-1]
     return [chunk_objects[i] for i in top_indices]
 
 
@@ -59,10 +46,6 @@ SYSTEM_PROMPT = (
 
 
 def is_request_allowed(question):
-    """
-    Guardrail check: blocks off-topic, harmful, or inappropriate requests
-    before they reach the main RAG pipeline.
-    """
     check = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
@@ -128,4 +111,4 @@ if question:
                 st.markdown(answer)
                 st.caption("📚 Sources: " + ", ".join(sources))
 
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+    st.session_state.messages.append({"role": "assistant", "content": answer}) 
