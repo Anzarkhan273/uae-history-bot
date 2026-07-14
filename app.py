@@ -2,15 +2,23 @@
 import pickle
 import numpy as np
 import streamlit as st
+from dotenv import load_dotenv
 from groq import Groq
 from sentence_transformers import SentenceTransformer
+
+load_dotenv()
 
 st.set_page_config(page_title="UAE History Bot", page_icon="🇦🇪")
 
 
 @st.cache_resource
 def load_resources():
-    api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        try:
+            api_key = st.secrets["GROQ_API_KEY"]
+        except Exception:
+            pass
     client = Groq(api_key=api_key)
     embed_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     with open("embeddings.pkl", "rb") as f:
@@ -80,4 +88,35 @@ def ask_bot(question):
             {"role": "user", "content": question}
         ]
     )
-    
+    return response.choices[0].message.content, sources
+
+
+st.title("🇦🇪 UAE History Bot")
+st.caption("Ask anything about UAE history — answers in Arabic and English, grounded in real sources.")
+st.caption("🔒 This app does not store or log your questions. Conversations exist only in this browser session.")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+question = st.chat_input("Ask a question about UAE history...")
+
+if question:
+    st.session_state.messages.append({"role": "user", "content": question})
+    with st.chat_message("user"):
+        st.markdown(question)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            if not is_request_allowed(question):
+                answer = "I can only help with questions about UAE history and culture. Please rephrase your question."
+                st.markdown(answer)
+            else:
+                answer, sources = ask_bot(question)
+                st.markdown(answer)
+                st.caption("📚 Sources: " + ", ".join(sources))
+
+    st.session_state.messages.append({"role": "assistant", "content": answer})
